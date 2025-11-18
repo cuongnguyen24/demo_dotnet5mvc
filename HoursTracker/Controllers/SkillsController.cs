@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using HoursTracker.Data;
@@ -12,15 +14,18 @@ namespace HoursTracker.Controllers
     /// <summary>
     /// Controller quản lý các kỹ năng (Skills)
     /// </summary>
+    [Authorize]
     public class SkillsController : Controller
     {
         #region Fields & Constructor
 
         private readonly HoursTrackerDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public SkillsController(HoursTrackerDbContext context)
+        public SkillsController(HoursTrackerDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         #endregion
@@ -29,11 +34,13 @@ namespace HoursTracker.Controllers
 
         // GET: Skills
         /// <summary>
-        /// Hiển thị danh sách tất cả các kỹ năng
+        /// Hiển thị danh sách tất cả các kỹ năng của user hiện tại
         /// </summary>
         public async Task<IActionResult> Index()
         {
+            var userId = _userManager.GetUserId(User);
             var skills = await _context.Skills
+                .Where(s => s.UserId == userId)
                 .Include(s => s.PracticeLogs)
                 .OrderByDescending(s => s.CreatedDate)
                 .ToListAsync();
@@ -52,8 +59,11 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
+            var userId = _userManager.GetUserId(User);
+
             // Load skill với PracticeLogs để tính TotalHours, ProgressPercentage
             var skill = await _context.Skills
+                .Where(s => s.UserId == userId)
                 .Include(s => s.PracticeLogs)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
@@ -111,7 +121,9 @@ namespace HoursTracker.Controllers
         [HttpGet]
         public async Task<IActionResult> GetChartData(int id, string period = "30days")
         {
+            var userId = _userManager.GetUserId(User);
             var skill = await _context.Skills
+                .Where(s => s.UserId == userId)
                 .Include(s => s.PracticeLogs)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
@@ -144,8 +156,14 @@ namespace HoursTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Name,Description,Color,TargetHours")] Skill skill)
         {
+            // Loại bỏ UserId khỏi ModelState validation vì nó sẽ được set từ User hiện tại
+            ModelState.Remove("UserId");
+            ModelState.Remove("User");
+            ModelState.Remove("PracticeLogs");
+            
             if (ModelState.IsValid)
             {
+                skill.UserId = _userManager.GetUserId(User);
                 skill.CreatedDate = DateTime.Now;
                 _context.Add(skill);
                 await _context.SaveChangesAsync();
@@ -168,7 +186,11 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
-            var skill = await _context.Skills.FindAsync(id);
+            var userId = _userManager.GetUserId(User);
+            var skill = await _context.Skills
+                .Where(s => s.UserId == userId)
+                .FirstOrDefaultAsync(s => s.Id == id);
+            
             if (skill == null)
             {
                 return NotFound();
@@ -189,11 +211,34 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
+            var userId = _userManager.GetUserId(User);
+            
+            // Kiểm tra ownership
+            var existingSkill = await _context.Skills
+                .Where(s => s.UserId == userId)
+                .FirstOrDefaultAsync(s => s.Id == id);
+            
+            if (existingSkill == null)
+            {
+                return NotFound();
+            }
+
+            // Loại bỏ UserId, User, PracticeLogs khỏi ModelState validation
+            ModelState.Remove("UserId");
+            ModelState.Remove("User");
+            ModelState.Remove("PracticeLogs");
+
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(skill);
+                    // Update trực tiếp vào existingSkill đã được track để tránh tracking conflict
+                    existingSkill.Name = skill.Name;
+                    existingSkill.Description = skill.Description;
+                    existingSkill.Color = skill.Color;
+                    existingSkill.TargetHours = skill.TargetHours;
+                    // Giữ nguyên UserId và CreatedDate
+                    
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
@@ -225,7 +270,9 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
+            var userId = _userManager.GetUserId(User);
             var skill = await _context.Skills
+                .Where(s => s.UserId == userId)
                 .Include(s => s.PracticeLogs)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
@@ -245,7 +292,16 @@ namespace HoursTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var skill = await _context.Skills.FindAsync(id);
+            var userId = _userManager.GetUserId(User);
+            var skill = await _context.Skills
+                .Where(s => s.UserId == userId)
+                .FirstOrDefaultAsync(s => s.Id == id);
+            
+            if (skill == null)
+            {
+                return NotFound();
+            }
+
             _context.Skills.Remove(skill);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
@@ -256,11 +312,12 @@ namespace HoursTracker.Controllers
         #region Private Helper Methods
 
         /// <summary>
-        /// Kiểm tra xem kỹ năng có tồn tại không
+        /// Kiểm tra xem kỹ năng có tồn tại không và thuộc về user hiện tại
         /// </summary>
         private bool SkillExists(int id)
         {
-            return _context.Skills.Any(e => e.Id == id);
+            var userId = _userManager.GetUserId(User);
+            return _context.Skills.Any(e => e.Id == id && e.UserId == userId);
         }
 
         /// <summary>
@@ -268,7 +325,7 @@ namespace HoursTracker.Controllers
         /// </summary>
         /// <param name="skill">Skill object</param>
         /// <param name="period">Khoảng thời gian: "7days", "30days", "90days", "6months", "12months", "year"</param>
-        private object GetChartData(Skill skill, string period = "30days")
+        private static object GetChartData(Skill skill, string period = "30days")
         {
             DateTime startDate, endDate;
             int daysCount;

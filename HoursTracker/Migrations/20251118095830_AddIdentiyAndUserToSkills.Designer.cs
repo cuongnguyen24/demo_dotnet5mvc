@@ -4,14 +4,16 @@ using HoursTracker.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace HoursTracker.Migrations
 {
     [DbContext(typeof(HoursTrackerDbContext))]
-    partial class HoursTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251118095830_AddIdentiyAndUserToSkills")]
+    partial class AddIdentiyAndUserToSkills
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -12,13 +14,16 @@ namespace HoursTracker.Controllers
     /// <summary>
     /// Controller quản lý các log luyện tập (Practice Logs)
     /// </summary>
+    [Authorize]
     public class PracticeLogsController : Controller
     {
         private readonly HoursTrackerDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public PracticeLogsController(HoursTrackerDbContext context)
+        public PracticeLogsController(HoursTrackerDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         #region Create
@@ -29,7 +34,10 @@ namespace HoursTracker.Controllers
         /// </summary>
         public async Task<IActionResult> Create(int? skillId)
         {
-            ViewData["SkillId"] = new SelectList(await _context.Skills.ToListAsync(), "Id", "Name", skillId);
+            var userId = _userManager.GetUserId(User);
+            ViewData["SkillId"] = new SelectList(
+                await _context.Skills.Where(s => s.UserId == userId).ToListAsync(), 
+                "Id", "Name", skillId);
             return View();
         }
 
@@ -50,6 +58,17 @@ namespace HoursTracker.Controllers
             {
                 ModelState.AddModelError("PracticeDate", 
                     $"Đã có log luyện tập cho ngày {practiceLog.PracticeDate.ToString("dd/MM/yyyy")}. Vui lòng chỉnh sửa log hiện có hoặc chọn ngày khác.");
+            }
+
+            // Kiểm tra skill thuộc về user hiện tại
+            var userId = _userManager.GetUserId(User);
+            var skill = await _context.Skills
+                .Where(s => s.UserId == userId && s.Id == practiceLog.SkillId)
+                .FirstOrDefaultAsync();
+            
+            if (skill == null)
+            {
+                ModelState.AddModelError("SkillId", "Kỹ năng không tồn tại hoặc không thuộc về bạn.");
             }
 
             if (ModelState.IsValid)
@@ -79,7 +98,9 @@ namespace HoursTracker.Controllers
                 return RedirectToAction("Details", "Skills", new { id = practiceLog.SkillId });
             }
 
-            ViewData["SkillId"] = new SelectList(await _context.Skills.ToListAsync(), "Id", "Name", practiceLog.SkillId);
+            ViewData["SkillId"] = new SelectList(
+                await _context.Skills.Where(s => s.UserId == userId).ToListAsync(), 
+                "Id", "Name", practiceLog.SkillId);
             return View(practiceLog);
         }
 
@@ -98,13 +119,20 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
-            var practiceLog = await _context.PracticeLogs.FindAsync(id);
+            var userId = _userManager.GetUserId(User);
+            var practiceLog = await _context.PracticeLogs
+                .Include(p => p.Skill)
+                .Where(p => p.Skill.UserId == userId)
+                .FirstOrDefaultAsync(p => p.Id == id);
+            
             if (practiceLog == null)
             {
                 return NotFound();
             }
 
-            ViewData["SkillId"] = new SelectList(await _context.Skills.ToListAsync(), "Id", "Name", practiceLog.SkillId);
+            ViewData["SkillId"] = new SelectList(
+                await _context.Skills.Where(s => s.UserId == userId).ToListAsync(), 
+                "Id", "Name", practiceLog.SkillId);
             return View(practiceLog);
         }
 
@@ -133,11 +161,39 @@ namespace HoursTracker.Controllers
                     $"Đã có log luyện tập khác cho ngày {practiceLog.PracticeDate.ToString("dd/MM/yyyy")}. Vui lòng chọn ngày khác.");
             }
 
+            // Kiểm tra ownership
+            var userId = _userManager.GetUserId(User);
+            var existingPracticeLog = await _context.PracticeLogs
+                .Include(p => p.Skill)
+                .Where(p => p.Skill.UserId == userId)
+                .FirstOrDefaultAsync(p => p.Id == id);
+            
+            if (existingPracticeLog == null)
+            {
+                return NotFound();
+            }
+
+            // Kiểm tra skill thuộc về user
+            var skill = await _context.Skills
+                .Where(s => s.UserId == userId && s.Id == practiceLog.SkillId)
+                .FirstOrDefaultAsync();
+            
+            if (skill == null)
+            {
+                ModelState.AddModelError("SkillId", "Kỹ năng không tồn tại hoặc không thuộc về bạn.");
+            }
+
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(practiceLog);
+                    // Update trực tiếp vào existingPracticeLog đã được track
+                    existingPracticeLog.SkillId = practiceLog.SkillId;
+                    existingPracticeLog.PracticeDate = practiceLog.PracticeDate;
+                    existingPracticeLog.Minutes = practiceLog.Minutes;
+                    existingPracticeLog.Notes = practiceLog.Notes;
+                    // Giữ nguyên CreatedDate
+                    
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
@@ -154,7 +210,9 @@ namespace HoursTracker.Controllers
                 return RedirectToAction("Details", "Skills", new { id = practiceLog.SkillId });
             }
 
-            ViewData["SkillId"] = new SelectList(await _context.Skills.ToListAsync(), "Id", "Name", practiceLog.SkillId);
+            ViewData["SkillId"] = new SelectList(
+                await _context.Skills.Where(s => s.UserId == userId).ToListAsync(), 
+                "Id", "Name", practiceLog.SkillId);
             return View(practiceLog);
         }
 
@@ -172,8 +230,10 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
+            var userId = _userManager.GetUserId(User);
             var practiceLog = await _context.PracticeLogs
                 .Include(p => p.Skill)
+                .Where(p => p.Skill.UserId == userId)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (practiceLog == null)
@@ -192,7 +252,17 @@ namespace HoursTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var practiceLog = await _context.PracticeLogs.FindAsync(id);
+            var userId = _userManager.GetUserId(User);
+            var practiceLog = await _context.PracticeLogs
+                .Include(p => p.Skill)
+                .Where(p => p.Skill.UserId == userId)
+                .FirstOrDefaultAsync(p => p.Id == id);
+            
+            if (practiceLog == null)
+            {
+                return NotFound();
+            }
+
             var skillId = practiceLog.SkillId;
             _context.PracticeLogs.Remove(practiceLog);
             await _context.SaveChangesAsync();
@@ -204,11 +274,14 @@ namespace HoursTracker.Controllers
         #region HelperFuncion
 
         /// <summary>
-        /// Kiểm tra xem log có tồn tại không
+        /// Kiểm tra xem log có tồn tại không và thuộc về user hiện tại
         /// </summary>
         private bool PracticeLogExists(int id)
         {
-            return _context.PracticeLogs.Any(e => e.Id == id);
+            var userId = _userManager.GetUserId(User);
+            return _context.PracticeLogs
+                .Include(p => p.Skill)
+                .Any(e => e.Id == id && e.Skill.UserId == userId);
         }
 
         /// <summary>

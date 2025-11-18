@@ -1,4 +1,5 @@
 ﻿using HoursTracker.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
@@ -20,8 +21,13 @@ namespace HoursTracker.Controllers
 
         public IActionResult Index()
         {
-            // Redirect đến trang danh sách kỹ năng
-            return RedirectToAction("Index", "Skills");
+            // Nếu đã đăng nhập, redirect đến trang danh sách kỹ năng
+            if (User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Index", "Skills");
+            }
+            // Nếu chưa đăng nhập, redirect đến trang đăng nhập
+            return RedirectToAction("Login", "Account");
         }
 
         public IActionResult Privacy()

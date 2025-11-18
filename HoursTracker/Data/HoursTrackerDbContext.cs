@@ -1,4 +1,5 @@
 using HoursTracker.Models;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace HoursTracker.Data
@@ -6,7 +7,7 @@ namespace HoursTracker.Data
     /// <summary>
     /// DbContext cho ứng dụng Hours Tracker
     /// </summary>
-    public class HoursTrackerDbContext : DbContext
+    public class HoursTrackerDbContext : IdentityDbContext<ApplicationUser>
     {
         public HoursTrackerDbContext(DbContextOptions<HoursTrackerDbContext> options)
             : base(options)
@@ -30,6 +31,11 @@ namespace HoursTracker.Data
                 entity.Property(e => e.Color).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.TargetHours).HasDefaultValue(1000);
                 entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+                entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Cấu hình PracticeLog

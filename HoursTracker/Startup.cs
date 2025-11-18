@@ -5,7 +5,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using HoursTracker.Data;
+using HoursTracker.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,6 +30,30 @@ namespace HoursTracker
             // Cấu hình Entity Framework với SQL Server
             services.AddDbContext<HoursTrackerDbContext>(options =>
                 options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
+
+            // Cấu hình Identity
+            services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+            {
+                // Cấu hình Password
+                options.Password.RequireDigit = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequiredLength = 6;
+
+                // Cấu hình User
+                options.User.RequireUniqueEmail = true;
+
+                // Cấu hình Lockout
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.AllowedForNewUsers = true;
+
+                // Cấu hình SignIn
+                options.SignIn.RequireConfirmedEmail = false;
+            })
+            .AddEntityFrameworkStores<HoursTrackerDbContext>()
+            .AddDefaultTokenProviders();
 
             services.AddControllersWithViews();
         }
@@ -54,6 +80,7 @@ namespace HoursTracker
 
             app.UseRouting();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>

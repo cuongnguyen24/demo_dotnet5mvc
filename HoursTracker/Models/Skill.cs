@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 
 namespace HoursTracker.Models
@@ -32,7 +33,13 @@ namespace HoursTracker.Models
         [Display(Name = "Ngày tạo")]
         public DateTime CreatedDate { get; set; } = DateTime.Now;
 
-        // Navigation property
+        // Foreign key cho User
+        [Required]
+        public string UserId { get; set; }
+
+        // Navigation properties
+        [ForeignKey("UserId")]
+        public virtual ApplicationUser User { get; set; }
         public virtual ICollection<PracticeLog> PracticeLogs { get; set; } = new List<PracticeLog>();
 
         /// <summary>
