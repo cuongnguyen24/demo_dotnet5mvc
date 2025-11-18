@@ -37,9 +37,6 @@ namespace HoursTracker
             catch (Exception ex)
             {
                 Console.WriteLine($"Cảnh báo: Không thể kết nối database. Lỗi: {ex.Message}");
-                Console.WriteLine("Hãy kiểm tra connection string và đảm bảo SQL Server đang chạy.");
-                Console.WriteLine("Hoặc chạy migration thủ công: dotnet ef database update");
-                Console.WriteLine("Ứng dụng vẫn sẽ chạy nhưng có thể gặp lỗi khi truy cập database.\n");
             }
             
             host.Run();

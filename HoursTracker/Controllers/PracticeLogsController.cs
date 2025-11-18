@@ -21,6 +21,8 @@ namespace HoursTracker.Controllers
             _context = context;
         }
 
+        #region Create
+
         // GET: PracticeLogs/Create
         /// <summary>
         /// Hiển thị form tạo log luyện tập mới
@@ -39,6 +41,17 @@ namespace HoursTracker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("SkillId,PracticeDate,Minutes,Notes")] PracticeLog practiceLog)
         {
+            // Kiểm tra log trùng ngày cho cùng skill
+            var existingLog = await _context.PracticeLogs
+                .FirstOrDefaultAsync(p => p.SkillId == practiceLog.SkillId && 
+                                         p.PracticeDate.Date == practiceLog.PracticeDate.Date);
+            
+            if (existingLog != null)
+            {
+                ModelState.AddModelError("PracticeDate", 
+                    $"Đã có log luyện tập cho ngày {practiceLog.PracticeDate.ToString("dd/MM/yyyy")}. Vui lòng chỉnh sửa log hiện có hoặc chọn ngày khác.");
+            }
+
             if (ModelState.IsValid)
             {
                 practiceLog.CreatedDate = DateTime.Now;
@@ -69,6 +82,10 @@ namespace HoursTracker.Controllers
             ViewData["SkillId"] = new SelectList(await _context.Skills.ToListAsync(), "Id", "Name", practiceLog.SkillId);
             return View(practiceLog);
         }
+
+        #endregion
+
+        #region Edit
 
         // GET: PracticeLogs/Edit/5
         /// <summary>
@@ -104,6 +121,18 @@ namespace HoursTracker.Controllers
                 return NotFound();
             }
 
+            // Kiểm tra log trùng ngày cho cùng skill (loại trừ chính log đang edit)
+            var existingLog = await _context.PracticeLogs
+                .FirstOrDefaultAsync(p => p.SkillId == practiceLog.SkillId && 
+                                         p.PracticeDate.Date == practiceLog.PracticeDate.Date &&
+                                         p.Id != practiceLog.Id);
+            
+            if (existingLog != null)
+            {
+                ModelState.AddModelError("PracticeDate", 
+                    $"Đã có log luyện tập khác cho ngày {practiceLog.PracticeDate.ToString("dd/MM/yyyy")}. Vui lòng chọn ngày khác.");
+            }
+
             if (ModelState.IsValid)
             {
                 try
@@ -129,6 +158,9 @@ namespace HoursTracker.Controllers
             return View(practiceLog);
         }
 
+        #endregion
+
+        #region Delete
         // GET: PracticeLogs/Delete/5
         /// <summary>
         /// Hiển thị form xác nhận xóa log luyện tập
@@ -166,6 +198,10 @@ namespace HoursTracker.Controllers
             await _context.SaveChangesAsync();
             return RedirectToAction("Details", "Skills", new { id = skillId });
         }
+
+        #endregion
+
+        #region HelperFuncion
 
         /// <summary>
         /// Kiểm tra xem log có tồn tại không
@@ -221,6 +257,7 @@ namespace HoursTracker.Controllers
 
             return newMilestones;
         }
+        #endregion
     }
 }
 
