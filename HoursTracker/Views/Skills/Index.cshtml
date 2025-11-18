@@ -1,0 +1,96 @@
+@model IEnumerable<HoursTracker.Models.Skill>
+
+@{
+    ViewData["Title"] = "Danh sách Kỹ năng";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="display-5">1.000 Hours Tracker</h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Thêm Kỹ năng Mới
+        </a>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info text-center">
+            <h5>Chưa có kỹ năng nào!</h5>
+            <p>Bắt đầu bằng cách thêm kỹ năng đầu tiên của bạn.</p>
+            <a asp-action="Create" class="btn btn-primary">Thêm Kỹ năng</a>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var skill in Model)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm skill-card" style="border-left: 4px solid @skill.Color;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title mb-0">@skill.Name</h5>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" asp-action="Details" asp-route-id="@skill.Id">Chi tiết</a></li>
+                                        <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@skill.Id">Chỉnh sửa</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" asp-action="Delete" asp-route-id="@skill.Id">Xóa</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(skill.Description))
+                            {
+                                <p class="card-text text-muted small mb-3">@skill.Description</p>
+                            }
+
+                            <!-- Circular Progress -->
+                            <div class="text-center mb-3">
+                                <div class="circular-progress" data-percentage="@skill.ProgressPercentage" data-color="@skill.Color">
+                                    <svg class="progress-ring" width="120" height="120">
+                                        <circle class="progress-ring-circle" stroke="@skill.Color" stroke-width="8" fill="transparent" r="52" cx="60" cy="60" />
+                                    </svg>
+                                    <div class="progress-text">
+                                        <span class="text-black font-weight-bold">@skill.ProgressPercentage.ToString("F1")%</span>
+                                        <small class="d-block text-muted">@skill.TotalHours.ToString("F1") / @skill.TargetHours giờ</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Linear Progress Bar -->
+                            <div class="mb-3">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: @skill.ProgressPercentage%; background-color: @skill.Color;"
+                                         aria-valuenow="@skill.ProgressPercentage" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        <small class="text-white fw-bold">@skill.ProgressPercentage.ToString("F1")%</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between text-muted small mb-3">
+                                <span><i class="bi bi-clock"></i> @skill.TotalHours.ToString("F1") giờ</span>
+                                <span><i class="bi bi-target"></i> @skill.TargetHours giờ</span>
+                            </div>
+
+                            <a asp-action="Details" asp-route-id="@skill.Id" class="btn btn-sm btn-outline-primary w-100">
+                                Xem Chi tiết
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/circular-progress.js"></script>
+}
+

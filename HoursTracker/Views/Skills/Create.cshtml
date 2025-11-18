@@ -1,0 +1,68 @@
+@model HoursTracker.Models.Skill
+
+@{
+    ViewData["Title"] = "Thêm Kỹ năng Mới";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Thêm Kỹ năng Mới</h4>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Create" id="skillForm">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Name" class="form-label"></label>
+                            <input asp-for="Name" class="form-control" placeholder="Ví dụ: Lập trình C#, Tiếng Anh, Piano..." />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Description" class="form-label"></label>
+                            <textarea asp-for="Description" class="form-control" rows="3" placeholder="Mô tả về kỹ năng này..."></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Color" class="form-label"></label>
+                                <div class="input-group">
+                                    <input type="color" asp-for="Color" class="form-control form-control-color" value="#007bff" />
+                                    <input type="text" asp-for="Color" class="form-control" placeholder="#007bff" />
+                                </div>
+                                <span asp-validation-for="Color" class="text-danger"></span>
+                                <small class="form-text text-muted">Chọn màu để phân biệt kỹ năng</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="TargetHours" class="form-label"></label>
+                                <input type="number" asp-for="TargetHours" class="form-control" value="1000" min="1" max="10000" />
+                                <span asp-validation-for="TargetHours" class="text-danger"></span>
+                                <small class="form-text text-muted">Mục tiêu số giờ luyện tập (mặc định: 1000 giờ)</small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Quay lại
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Tạo Kỹ năng
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script src="~/js/skill-form.js"></script>
+}
+

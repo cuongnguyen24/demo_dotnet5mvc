@@ -1,0 +1,52 @@
+@model HoursTracker.Models.PracticeLog
+
+@{
+    ViewData["Title"] = "Xóa Log Luyện tập";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Xác nhận Xóa</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <strong>Cảnh báo!</strong> Bạn có chắc chắn muốn xóa log luyện tập này?
+                    </div>
+
+                    <dl class="row">
+                        <dt class="col-sm-4">Kỹ năng:</dt>
+                        <dd class="col-sm-8">@Model.Skill?.Name</dd>
+
+                        <dt class="col-sm-4">Ngày:</dt>
+                        <dd class="col-sm-8">@Model.PracticeDate.ToString("dd/MM/yyyy")</dd>
+
+                        <dt class="col-sm-4">Thời gian:</dt>
+                        <dd class="col-sm-8">@Model.Minutes phút (@(Model.Minutes / 60.0) giờ)</dd>
+
+                        @if (!string.IsNullOrEmpty(Model.Notes))
+                        {
+                            <dt class="col-sm-4">Ghi chú:</dt>
+                            <dd class="col-sm-8">@Model.Notes</dd>
+                        }
+                    </dl>
+
+                    <form asp-action="Delete" method="post">
+                        <input type="hidden" asp-for="Id" />
+                        <div class="d-flex justify-content-between">
+                            <a href="javascript:history.back()" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Hủy
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Xóa
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

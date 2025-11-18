@@ -1,0 +1,215 @@
+@model HoursTracker.Models.Skill
+@using HoursTracker.Models
+
+@{
+    ViewData["Title"] = Model.Name;
+    var milestones = ViewBag.Milestones as List<Milestone> ?? new List<Milestone>();
+    var chartLabels = ViewBag.ChartLabels as string[];
+    var chartDataValues = ViewBag.ChartDataValues as int[];
+}
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-5 mb-1" style="color: @Model.Color;">@Model.Name</h1>
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <p class="text-muted">@Model.Description</p>
+            }
+        </div>
+        <div>
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">
+                <i class="bi bi-pencil-square"></i> Chỉnh sửa
+            </a>
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Progress Section -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Tiến độ</h5>
+                </div>
+                <div class="card-body text-center">
+                    <!-- Circular Progress -->
+                    <div class="circular-progress-large mb-4" data-percentage="@Model.ProgressPercentage" data-color="@Model.Color">
+                        <svg class="progress-ring" width="200" height="200">
+                            <circle class="progress-ring-circle" stroke="@Model.Color" stroke-width="12" fill="transparent" r="88" cx="100" cy="100" />
+                        </svg>
+                        <div class="progress-text">
+                            <span class="text-black display-4">@Model.ProgressPercentage.ToString("F1")%</span>
+                            <small class="d-block text-muted mt-2">@Model.TotalHours.ToString("F1") / @Model.TargetHours giờ</small>
+                        </div>
+                    </div>
+
+                    <!-- Linear Progress Bar -->
+                    <div class="mb-3">
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: @Model.ProgressPercentage%; background-color: @Model.Color;"
+                                 aria-valuenow="@Model.ProgressPercentage" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                <span class="text-white fw-bold">@Model.ProgressPercentage.ToString("F1")%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="mb-0">@Model.TotalHours.ToString("F1")</h4>
+                                <small class="text-muted">Giờ đã luyện</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="mb-0">@Model.TargetHours</h4>
+                            <small class="text-muted">Mục tiêu</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Milestones -->
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-trophy"></i> Milestones</h5>
+                </div>
+                <div class="card-body">
+                    @{
+                        var milestoneHours = new[] { 100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000 };
+                    }
+                    <div class="list-group">
+                        @foreach (var hour in milestoneHours)
+                        {
+                            var achieved = milestones.Any(m => m.Hours == hour);
+                            var isReached = Model.TotalHours >= hour;
+                            
+                            <div class="list-group-item @(achieved ? "list-group-item-success" : isReached ? "list-group-item-warning" : "")">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        @if (achieved)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                        }
+                                        else if (isReached)
+                                        {
+                                            <i class="bi bi-circle"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-circle"></i>
+                                        }
+                                        <strong>@hour giờ</strong>
+                                    </span>
+                                    @if (achieved)
+                                    {
+                                        <span class="badge bg-success">Đã đạt</span>
+                                    }
+                                    else if (isReached)
+                                    {
+                                        <span class="badge bg-warning">Đã vượt</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart and Logs Section -->
+        <div class="col-lg-8">
+            <!-- Chart -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Biểu đồ 30 ngày gần nhất</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="practiceChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Practice Logs -->
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-journal-text"></i> Lịch sử Luyện tập</h5>
+                    <a asp-controller="PracticeLogs" asp-action="Create" asp-route-skillId="@Model.Id" class="btn btn-light btn-sm">
+                        <i class="bi bi-plus-circle"></i> Thêm Log
+                    </a>
+                </div>
+                <div class="card-body">
+                    @if (!Model.PracticeLogs.Any())
+                    {
+                        <div class="alert alert-info text-center">
+                            <p class="mb-0">Chưa có log luyện tập nào. Hãy bắt đầu luyện tập!</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ngày</th>
+                                        <th>Thời gian</th>
+                                        <th>Ghi chú</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var log in Model.PracticeLogs)
+                                    {
+                                        <tr>
+                                            <td>@log.PracticeDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                <span class="badge bg-primary">@log.Minutes phút</span>
+                                                <small class="text-muted">(@(log.Minutes / 60.0) giờ)</small>
+                                            </td>
+                                            <td>@(string.IsNullOrEmpty(log.Notes) ? "-" : log.Notes)</td>
+                                            <td>
+                                                <a asp-controller="PracticeLogs" asp-action="Edit" asp-route-id="@log.Id" class="btn btn-sm btn-outline-warning">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                <a asp-controller="PracticeLogs" asp-action="Delete" asp-route-id="@log.Id" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="~/js/circular-progress.js"></script>
+    <script src="~/js/skill-detail.js"></script>
+    <script>
+        // Khởi tạo biểu đồ
+        @if (chartLabels != null && chartDataValues != null)
+        {
+            <text>
+            const chartData = {
+                labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartLabels)),
+                data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartDataValues))
+            };
+            if (chartData && chartData.labels && chartData.data) {
+                initPracticeChart(chartData, '@Model.Color');
+            }
+            </text>
+        }
+    </script>
+}
+
