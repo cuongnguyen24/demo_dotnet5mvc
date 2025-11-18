@@ -32,7 +32,7 @@
         <!-- Progress Section -->
         <div class="col-lg-4">
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header text-white" style="background-color: @Model.Color;">
                     <h5 class="mb-0"><i class="bi bi-graph-up"></i> Tiến độ</h5>
                 </div>
                 <div class="card-body text-center">
@@ -77,7 +77,7 @@
 
             <!-- Milestones -->
             <div class="card shadow">
-                <div class="card-header bg-success text-white">
+                <div class="card-header text-white" style="background-color: @Model.Color;">
                     <h5 class="mb-0"><i class="bi bi-trophy"></i> Milestones</h5>
                 </div>
                 <div class="card-body">
@@ -127,8 +127,24 @@
         <div class="col-lg-8">
             <!-- Chart -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Biểu đồ 30 ngày gần nhất</h5>
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: @Model.Color;">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Biểu đồ Luyện tập</h5>
+                    <div class="btn-group" role="group" id="chartPeriodButtons">
+                        <input type="radio" class="btn-check" name="chartPeriod" id="period7days" value="7days" autocomplete="off">
+                        <label class="btn btn-sm btn-light" for="period7days">7 ngày</label>
+
+                        <input type="radio" class="btn-check" name="chartPeriod" id="period30days" value="30days" autocomplete="off" checked>
+                        <label class="btn btn-sm btn-light" for="period30days">30 ngày</label>
+
+                        <input type="radio" class="btn-check" name="chartPeriod" id="period90days" value="90days" autocomplete="off">
+                        <label class="btn btn-sm btn-light" for="period90days">90 ngày</label>
+
+                        <input type="radio" class="btn-check" name="chartPeriod" id="period6months" value="6months" autocomplete="off">
+                        <label class="btn btn-sm btn-light" for="period6months">6 tháng</label>
+
+                        <input type="radio" class="btn-check" name="chartPeriod" id="periodYear" value="year" autocomplete="off">
+                        <label class="btn btn-sm btn-light" for="periodYear">Năm</label>
+                    </div>
                 </div>
                 <div class="card-body">
                     <canvas id="practiceChart" height="100"></canvas>
@@ -137,16 +153,23 @@
 
             <!-- Practice Logs -->
             <div class="card shadow">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: @Model.Color;">
                     <h5 class="mb-0"><i class="bi bi-journal-text"></i> Lịch sử Luyện tập</h5>
                     <a asp-controller="PracticeLogs" asp-action="Create" asp-route-skillId="@Model.Id" class="btn btn-light btn-sm">
                         <i class="bi bi-plus-circle"></i> Thêm Log
                     </a>
                 </div>
                 <div class="card-body">
-                    @if (!Model.PracticeLogs.Any())
+                    @{
+                        var practiceLogs = ViewBag.PracticeLogs as List<PracticeLog> ?? new List<PracticeLog>();
+                        var totalLogs = ViewBag.TotalLogs as int? ?? 0;
+                        var currentPage = ViewBag.CurrentPage as int? ?? 1;
+                        var totalPages = ViewBag.TotalPages as int? ?? 1;
+                        var pageSize = ViewBag.PageSize as int? ?? 10;
+                    }
+                    @if (totalLogs == 0)
                     {
-                        <div class="alert alert-info text-center">
+                        <div class="alert text-center text-white" style="background-color: @Model.Color; border-color: @Model.Color;">
                             <p class="mb-0">Chưa có log luyện tập nào. Hãy bắt đầu luyện tập!</p>
                         </div>
                     }
@@ -163,12 +186,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var log in Model.PracticeLogs)
+                                    @foreach (var log in practiceLogs)
                                     {
                                         <tr>
                                             <td>@log.PracticeDate.ToString("dd/MM/yyyy")</td>
                                             <td>
-                                                <span class="badge bg-primary">@log.Minutes phút</span>
+                                                <span class="badge" style="background-color: @Model.Color;">@log.Minutes phút</span>
                                                 <small class="text-muted">(@(log.Minutes / 60.0) giờ)</small>
                                             </td>
                                             <td>@(string.IsNullOrEmpty(log.Notes) ? "-" : log.Notes)</td>
@@ -185,6 +208,93 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        @if (totalPages > 1)
+                        {
+                            <nav aria-label="Phân trang lịch sử luyện tập" class="mt-3">
+                                <ul class="pagination justify-content-center">
+                                    @if (currentPage > 1)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@(currentPage - 1)" style="color: @Model.Color;">
+                                                <i class="bi bi-chevron-left"></i> Trước
+                                            </a>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        <li class="page-item disabled">
+                                            <span class="page-link"><i class="bi bi-chevron-left"></i> Trước</span>
+                                        </li>
+                                    }
+
+                                    @{
+                                        int startPage = Math.Max(1, currentPage - 2);
+                                        int endPage = Math.Min(totalPages, currentPage + 2);
+                                    }
+
+                                    @if (startPage > 1)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="1" style="color: @Model.Color;">1</a>
+                                        </li>
+                                        @if (startPage > 2)
+                                        {
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        }
+                                    }
+
+                                    @for (int i = startPage; i <= endPage; i++)
+                                    {
+                                        if (i == currentPage)
+                                        {
+                                            <li class="page-item active">
+                                                <span class="page-link" style="background-color: @Model.Color; border-color: @Model.Color;">@i</span>
+                                            </li>
+                                        }
+                                        else
+                                        {
+                                            <li class="page-item">
+                                                <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@i" style="color: @Model.Color;">@i</a>
+                                            </li>
+                                        }
+                                    }
+
+                                    @if (endPage < totalPages)
+                                    {
+                                        @if (endPage < totalPages - 1)
+                                        {
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        }
+                                        <li class="page-item">
+                                            <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@totalPages" style="color: @Model.Color;">@totalPages</a>
+                                        </li>
+                                    }
+
+                                    @if (currentPage < totalPages)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link" asp-action="Details" asp-route-id="@Model.Id" asp-route-page="@(currentPage + 1)" style="color: @Model.Color;">
+                                                Sau <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        <li class="page-item disabled">
+                                            <span class="page-link">Sau <i class="bi bi-chevron-right"></i></span>
+                                        </li>
+                                    }
+                                </ul>
+                            </nav>
+                        }
+                        <div class="text-center text-muted small mt-2">
+                            Hiển thị @((currentPage - 1) * pageSize + 1) - @(Math.Min(currentPage * pageSize, totalLogs)) trong tổng số @totalLogs log
+                        </div>
                     }
                 </div>
             </div>
@@ -198,17 +308,54 @@
     <script src="~/js/skill-detail.js"></script>
     <script>
         // Khởi tạo biểu đồ
+        const skillId = @Model.Id;
+        const skillColor = '@Model.Color';
+        let currentPeriod = '@ViewBag.ChartPeriod' || '30days';
+        
         @if (chartLabels != null && chartDataValues != null)
         {
             <text>
-            const chartData = {
+            const initialChartData = {
                 labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartLabels)),
                 data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartDataValues))
             };
-            if (chartData && chartData.labels && chartData.data) {
-                initPracticeChart(chartData, '@Model.Color');
+            if (initialChartData && initialChartData.labels && initialChartData.data) {
+                initPracticeChart(initialChartData, skillColor);
             }
             </text>
+        }
+
+        // Xử lý thay đổi khoảng thời gian
+        document.querySelectorAll('input[name="chartPeriod"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    loadChartData(this.value);
+                }
+            });
+        });
+
+        // Hàm load dữ liệu biểu đồ từ API
+        function loadChartData(period) {
+            // Hiển thị loading
+            const canvas = document.getElementById('practiceChart');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Gọi API
+            fetch(`/Skills/GetChartData/${skillId}?period=${period}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.labels && data.data) {
+                        initPracticeChart(data, skillColor);
+                        currentPeriod = period;
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi khi tải dữ liệu biểu đồ:', error);
+                    alert('Không thể tải dữ liệu biểu đồ. Vui lòng thử lại.');
+                });
         }
     </script>
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -13,12 +14,18 @@ namespace HoursTracker.Controllers
     /// </summary>
     public class SkillsController : Controller
     {
+        #region Fields & Constructor
+
         private readonly HoursTrackerDbContext _context;
 
         public SkillsController(HoursTrackerDbContext context)
         {
             _context = context;
         }
+
+        #endregion
+
+        #region Index & Details
 
         // GET: Skills
         /// <summary>
@@ -38,15 +45,16 @@ namespace HoursTracker.Controllers
         /// <summary>
         /// Hiển thị chi tiết kỹ năng với progress, logs, biểu đồ và milestones
         /// </summary>
-        public async Task<IActionResult> Details(int? id)
+        public async Task<IActionResult> Details(int? id, int page = 1)
         {
             if (id == null)
             {
                 return NotFound();
             }
 
+            // Load skill với PracticeLogs để tính TotalHours, ProgressPercentage
             var skill = await _context.Skills
-                .Include(s => s.PracticeLogs.OrderByDescending(p => p.PracticeDate))
+                .Include(s => s.PracticeLogs)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (skill == null)
@@ -62,14 +70,63 @@ namespace HoursTracker.Controllers
 
             ViewBag.Milestones = milestones;
 
-            // Tính toán dữ liệu cho biểu đồ (30 ngày gần nhất)
-            dynamic chartData = GetChartData(skill);
+            // Tính toán dữ liệu cho biểu đồ (30 ngày gần nhất - mặc định)
+            dynamic chartData = GetChartData(skill, "30days");
             ViewBag.ChartLabels = chartData.labels;
             ViewBag.ChartDataValues = chartData.data;
+            ViewBag.ChartPeriod = "30days"; // Mặc định
+
+            // Phân trang PracticeLogs
+            const int pageSize = 10; // Số items mỗi trang
+            var totalLogs = skill.PracticeLogs.Count;
+            var totalPages = (int)Math.Ceiling(totalLogs / (double)pageSize);
+            
+            // Đảm bảo page hợp lệ
+            if (page < 1) page = 1;
+            if (page > totalPages && totalPages > 0) page = totalPages;
+
+            var paginatedLogs = skill.PracticeLogs
+                .OrderByDescending(p => p.PracticeDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            ViewBag.PracticeLogs = paginatedLogs;
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = totalPages;
+            ViewBag.TotalLogs = totalLogs;
+            ViewBag.PageSize = pageSize;
 
             return View(skill);
         }
 
+        #endregion
+
+        #region API Actions
+
+        // GET: Skills/GetChartData/5?period=30days
+        /// <summary>
+        /// API endpoint để lấy dữ liệu biểu đồ theo khoảng thời gian
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> GetChartData(int id, string period = "30days")
+        {
+            var skill = await _context.Skills
+                .Include(s => s.PracticeLogs)
+                .FirstOrDefaultAsync(m => m.Id == id);
+
+            if (skill == null)
+            {
+                return NotFound();
+            }
+
+            var chartData = GetChartData(skill, period);
+            return Json(chartData);
+        }
+
+        #endregion
+
+        #region Create
         // GET: Skills/Create
         /// <summary>
         /// Hiển thị form tạo kỹ năng mới
@@ -96,6 +153,9 @@ namespace HoursTracker.Controllers
             }
             return View(skill);
         }
+        #endregion
+
+        #region Edit
 
         // GET: Skills/Edit/5
         /// <summary>
@@ -151,7 +211,9 @@ namespace HoursTracker.Controllers
             }
             return View(skill);
         }
+        #endregion
 
+        #region Delete
         // GET: Skills/Delete/5
         /// <summary>
         /// Hiển thị form xác nhận xóa kỹ năng
@@ -189,6 +251,10 @@ namespace HoursTracker.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        #endregion
+
+        #region Private Helper Methods
+
         /// <summary>
         /// Kiểm tra xem kỹ năng có tồn tại không
         /// </summary>
@@ -198,42 +264,146 @@ namespace HoursTracker.Controllers
         }
 
         /// <summary>
-        /// Lấy dữ liệu cho biểu đồ (30 ngày gần nhất)
+        /// Lấy dữ liệu cho biểu đồ theo khoảng thời gian
         /// </summary>
-        private object GetChartData(Skill skill)
+        /// <param name="skill">Skill object</param>
+        /// <param name="period">Khoảng thời gian: "7days", "30days", "90days", "6months", "12months", "year"</param>
+        private object GetChartData(Skill skill, string period = "30days")
         {
-            var endDate = DateTime.Today;
-            var startDate = endDate.AddDays(-29);
+            DateTime startDate, endDate;
+            int daysCount;
+            string labelFormat;
+            Func<DateTime, string> labelFormatter;
 
+            // Xác định khoảng thời gian
+            switch (period?.ToLower())
+            {
+                case "7days":
+                    endDate = DateTime.Today;
+                    startDate = endDate.AddDays(-6);
+                    daysCount = 7;
+                    labelFormat = "dd/MM";
+                    labelFormatter = d => d.ToString("dd/MM");
+                    break;
+
+                case "30days":
+                    endDate = DateTime.Today;
+                    startDate = endDate.AddDays(-29);
+                    daysCount = 30;
+                    labelFormat = "dd/MM";
+                    labelFormatter = d => d.ToString("dd/MM");
+                    break;
+
+                case "90days":
+                    endDate = DateTime.Today;
+                    startDate = endDate.AddDays(-89);
+                    daysCount = 90;
+                    labelFormat = "dd/MM";
+                    labelFormatter = d => d.ToString("dd/MM");
+                    break;
+
+                case "6months":
+                    endDate = DateTime.Today;
+                    startDate = new DateTime(endDate.Year, endDate.Month, 1).AddMonths(-5);
+                    daysCount = (int)(endDate - startDate).TotalDays + 1;
+                    labelFormat = "MM/yyyy";
+                    labelFormatter = d => d.ToString("MM/yyyy");
+                    break;
+
+                case "12months":
+                case "year":
+                    endDate = DateTime.Today;
+                    startDate = new DateTime(endDate.Year, 1, 1);
+                    daysCount = (int)(endDate - startDate).TotalDays + 1;
+                    labelFormat = "MM/yyyy";
+                    labelFormatter = d => d.ToString("MM/yyyy");
+                    break;
+
+                default:
+                    // Mặc định 30 ngày
+                    endDate = DateTime.Today;
+                    startDate = endDate.AddDays(-29);
+                    daysCount = 30;
+                    labelFormat = "dd/MM";
+                    labelFormatter = d => d.ToString("dd/MM");
+                    break;
+            }
+
+            // Lấy logs trong khoảng thời gian
             var logs = skill.PracticeLogs
-                .Where(p => p.PracticeDate >= startDate && p.PracticeDate <= endDate)
-                .GroupBy(p => p.PracticeDate)
-                .Select(g => new
-                {
-                    Date = g.Key,
-                    Minutes = g.Sum(p => p.Minutes)
-                })
-                .OrderBy(x => x.Date)
+                .Where(p => p.PracticeDate.Date >= startDate.Date && p.PracticeDate.Date <= endDate.Date)
                 .ToList();
 
-            // Tạo danh sách đầy đủ 30 ngày
-            var chartData = new
+            // Xử lý theo loại period
+            if (period?.ToLower() == "6months" || period?.ToLower() == "12months" || period?.ToLower() == "year")
             {
-                labels = Enumerable.Range(0, 30)
-                    .Select(i => startDate.AddDays(i).ToString("dd/MM"))
-                    .ToArray(),
-                data = Enumerable.Range(0, 30)
-                    .Select(i =>
+                // Nhóm theo tháng
+                var monthlyData = logs
+                    .GroupBy(p => new { p.PracticeDate.Year, p.PracticeDate.Month })
+                    .Select(g => new
                     {
-                        var date = startDate.AddDays(i);
-                        var log = logs.FirstOrDefault(l => l.Date.Date == date.Date);
-                        return log != null ? log.Minutes : 0;
+                        Year = g.Key.Year,
+                        Month = g.Key.Month,
+                        Minutes = g.Sum(p => p.Minutes)
                     })
-                    .ToArray()
-            };
+                    .ToList();
 
-            return chartData;
+                // Tạo danh sách đầy đủ các tháng
+                var labels = new List<string>();
+                var data = new List<int>();
+
+                var currentDate = new DateTime(startDate.Year, startDate.Month, 1);
+                var endMonth = new DateTime(endDate.Year, endDate.Month, 1);
+
+                while (currentDate <= endMonth)
+                {
+                    labels.Add(currentDate.ToString("MM/yyyy"));
+                    var monthData = monthlyData.FirstOrDefault(m => m.Year == currentDate.Year && m.Month == currentDate.Month);
+                    data.Add(monthData != null ? monthData.Minutes : 0);
+                    currentDate = currentDate.AddMonths(1);
+                }
+
+                return new
+                {
+                    labels = labels.ToArray(),
+                    data = data.ToArray(),
+                    period = period
+                };
+            }
+            else
+            {
+                // Nhóm theo ngày
+                var dailyData = logs
+                    .GroupBy(p => p.PracticeDate.Date)
+                    .Select(g => new
+                    {
+                        Date = g.Key,
+                        Minutes = g.Sum(p => p.Minutes)
+                    })
+                    .ToList();
+
+                // Tạo danh sách đầy đủ các ngày
+                var labels = new List<string>();
+                var data = new List<int>();
+
+                for (int i = 0; i < daysCount; i++)
+                {
+                    var date = startDate.AddDays(i);
+                    labels.Add(labelFormatter(date));
+                    var dayData = dailyData.FirstOrDefault(d => d.Date.Date == date.Date);
+                    data.Add(dayData != null ? dayData.Minutes : 0);
+                }
+
+                return new
+                {
+                    labels = labels.ToArray(),
+                    data = data.ToArray(),
+                    period = period
+                };
+            }
         }
+
+        #endregion
     }
 }
 
